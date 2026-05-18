@@ -6,12 +6,15 @@ import java.io.IOException;
 
 public class VirtualRAM {
     private static final int PAGE_SHIFT = 12;
-    private static final int PAGE_SIZE = 1 << PAGE_SHIFT;
+    public static final int PAGE_SIZE = 1 << PAGE_SHIFT;
     private static final int PAGE_MASK = PAGE_SIZE - 1;
     
     private static final int DEFAULT_MAX_CACHE_PAGES = 128;
     private static final int MAX_CACHE_PAGES_CAP = 512;
     private static final int WRITEBACK_BATCH_SIZE = 2;
+    private static final int CACHE_MEMORY_DIVISOR = 8;
+    private static final int SMALL_RAM_THRESHOLD_BYTES = 4 << 20;
+    private static final int SMALL_RAM_MAX_CACHE_PAGES = 64;
 
     public final int length;
     private int numPages;
@@ -69,10 +72,12 @@ public class VirtualRAM {
         int suggested = DEFAULT_MAX_CACHE_PAGES;
         try {
             long free = Runtime.getRuntime().freeMemory();
-            int byFree = (int)(free / (PAGE_SIZE * 8));
+            int byFree = (int)(free / (PAGE_SIZE * CACHE_MEMORY_DIVISOR));
             if (byFree > suggested) suggested = byFree;
         } catch (Throwable t) {}
-        if (sizeInBytes <= (4 << 20) && suggested > 64) suggested = 64;
+        if (sizeInBytes <= SMALL_RAM_THRESHOLD_BYTES && suggested > SMALL_RAM_MAX_CACHE_PAGES) {
+            suggested = SMALL_RAM_MAX_CACHE_PAGES;
+        }
         return sanitizeCachePages(suggested);
     }
 

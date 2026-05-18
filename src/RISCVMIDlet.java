@@ -9,6 +9,15 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
     
     int ramSize = 32 * 1024 * 1024;
     private static final int DEFAULT_STEP_BATCH = 10000;
+    private static final int CACHE_MEMORY_DIVISOR = 8;
+    private static final int MIN_CACHE_PAGES = 16;
+    private static final int MAX_CACHE_PAGES = 512;
+    private static final int STEP_BATCH_DECREASE_ELAPSED_US = 30000;
+    private static final int STEP_BATCH_INCREASE_ELAPSED_US = 8000;
+    private static final int STEP_BATCH_MIN = 2000;
+    private static final int STEP_BATCH_MAX = 20000;
+    private static final int STEP_BATCH_DELTA = 1000;
+    private static final int YIELD_INTERVAL_MS = 12;
     
     private int[] kbBuffer = new int[64];
     private int kbReadPtr = 0, kbWritePtr = 0;
@@ -263,10 +272,10 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
                     if (elapsedUs < 1) elapsedUs = 1; 
                     lastTime = now;
 
-                    if (elapsedUs > 30000 && stepBatch > 2000) {
-                        stepBatch -= 1000;
-                    } else if (elapsedUs < 8000 && stepBatch < 20000) {
-                        stepBatch += 1000;
+                    if (elapsedUs > STEP_BATCH_DECREASE_ELAPSED_US && stepBatch > STEP_BATCH_MIN) {
+                        stepBatch -= STEP_BATCH_DELTA;
+                    } else if (elapsedUs < STEP_BATCH_INCREASE_ELAPSED_US && stepBatch < STEP_BATCH_MAX) {
+                        stepBatch += STEP_BATCH_DELTA;
                     }
                     
                     int ret = MiniRV32IMA.step(core, vram, ramSize, elapsedUs, stepBatch, this);
@@ -281,7 +290,7 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
                     }
                     
                     long afterStep = System.currentTimeMillis();
-                    if (afterStep - lastYieldTime >= 12) {
+                    if (afterStep - lastYieldTime >= YIELD_INTERVAL_MS) {
                         try { Thread.sleep(1); } catch (Exception e) {}
                         lastYieldTime = afterStep;
                     }
@@ -294,7 +303,7 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
     }
 
     private int selectCachePages(int ramBytes) {
-        int ramPages = (ramBytes + 4095) / 4096;
+        int ramPages = (ramBytes + (VirtualRAM.PAGE_SIZE - 1)) / VirtualRAM.PAGE_SIZE;
         int pages = 128;
         try {
             String override = System.getProperty("linux2me.cache.pages");
@@ -302,11 +311,11 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
         } catch (Throwable t) {}
         try {
             long free = Runtime.getRuntime().freeMemory();
-            int byFree = (int)(free / (4096 * 8));
+            int byFree = (int)(free / (VirtualRAM.PAGE_SIZE * CACHE_MEMORY_DIVISOR));
             if (byFree > pages) pages = byFree;
         } catch (Throwable t) {}
-        if (pages < 16) pages = 16;
-        if (pages > 512) pages = 512;
+        if (pages < MIN_CACHE_PAGES) pages = MIN_CACHE_PAGES;
+        if (pages > MAX_CACHE_PAGES) pages = MAX_CACHE_PAGES;
         if (pages > ramPages) pages = ramPages;
         return pages;
     }
