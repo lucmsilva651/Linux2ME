@@ -4,7 +4,7 @@
 public class MiniRV32IMA {
 
     public static final int MINIRV32_RAM_IMAGE_OFFSET = 0x80000000;
-    private static final int EXTRAFULL_POSTEXEC_HOOK = 1 << 30;
+    private static final int EXTRAFLAGS_POSTEXEC_HOOK_BIT = 1 << 30;
 
     public interface RVSystem {
         void handleMemStoreControl(int addy, int val);
@@ -61,7 +61,7 @@ public class MiniRV32IMA {
     }
 
     public static int step(State state, VirtualRAM image, int ramSize, int elapsedUs, int count, RVSystem sys) {
-        boolean callPostExec = (state.extraflags & EXTRAFULL_POSTEXEC_HOOK) != 0;
+        boolean callPostExec = (state.extraflags & EXTRAFLAGS_POSTEXEC_HOOK_BIT) != 0;
         int new_timer = state.timerl + elapsedUs;
         if (isUnsignedLess(new_timer, state.timerl)) state.timerh++;
         state.timerl = new_timer;

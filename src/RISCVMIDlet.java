@@ -302,20 +302,13 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
     }
 
     private int selectCachePages(int ramBytes) {
-        int ramPages = (ramBytes + (VirtualRAM.PAGE_SIZE - 1)) / VirtualRAM.PAGE_SIZE;
-        int pages = 128;
+        int pages = VirtualRAM.suggestCachePages(ramBytes);
         try {
             String override = System.getProperty("linux2me.cache.pages");
             if (override != null) pages = Integer.parseInt(override);
         } catch (Throwable t) {}
-        try {
-            long free = Runtime.getRuntime().freeMemory();
-            int cachePagesByFreeMemory = (int)(free / (VirtualRAM.PAGE_SIZE * VirtualRAM.CACHE_MEMORY_DIVISOR));
-            if (cachePagesByFreeMemory > pages) pages = cachePagesByFreeMemory;
-        } catch (Throwable t) {}
         if (pages < MIN_CACHE_PAGES) pages = MIN_CACHE_PAGES;
         if (pages > MAX_CACHE_PAGES) pages = MAX_CACHE_PAGES;
-        if (pages > ramPages) pages = ramPages;
         return pages;
     }
 

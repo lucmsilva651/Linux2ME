@@ -69,7 +69,7 @@ public class VirtualRAM {
         return sanitized;
     }
 
-    private static int suggestCachePages(int sizeInBytes) {
+    public static int suggestCachePages(int sizeInBytes) {
         int suggested = DEFAULT_MAX_CACHE_PAGES;
         try {
             long free = Runtime.getRuntime().freeMemory();
@@ -111,7 +111,7 @@ public class VirtualRAM {
         }
     }
 
-    private void flushDirtyBatch(int maxToFlush, int excludeSlot) {
+    private void flushDirtyBatch(int maxPagesToFlush, int excludeSlot) {
         if (swap == null) return;
         int flushed = 0;
         for (int i = 0; i < cacheTags.length; i++) {
@@ -119,7 +119,7 @@ public class VirtualRAM {
             if (cacheTags[i] != -1 && dirty[i]) {
                 flushSlotToSwap(i);
                 flushed++;
-                if (flushed >= maxToFlush) return;
+                if (flushed >= maxPagesToFlush) return;
             }
         }
     }
