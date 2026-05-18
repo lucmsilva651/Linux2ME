@@ -9,7 +9,6 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
     
     int ramSize = 32 * 1024 * 1024;
     private static final int DEFAULT_STEP_BATCH = 10000;
-    private static final int CACHE_MEMORY_DIVISOR = 8;
     private static final int MIN_CACHE_PAGES = 16;
     private static final int MAX_CACHE_PAGES = 512;
     private static final int STEP_BATCH_DECREASE_ELAPSED_US = 30000;
@@ -311,8 +310,8 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
         } catch (Throwable t) {}
         try {
             long free = Runtime.getRuntime().freeMemory();
-            int byFree = (int)(free / (VirtualRAM.PAGE_SIZE * CACHE_MEMORY_DIVISOR));
-            if (byFree > pages) pages = byFree;
+            int cachePagesByFreeMemory = (int)(free / (VirtualRAM.PAGE_SIZE * VirtualRAM.CACHE_MEMORY_DIVISOR));
+            if (cachePagesByFreeMemory > pages) pages = cachePagesByFreeMemory;
         } catch (Throwable t) {}
         if (pages < MIN_CACHE_PAGES) pages = MIN_CACHE_PAGES;
         if (pages > MAX_CACHE_PAGES) pages = MAX_CACHE_PAGES;

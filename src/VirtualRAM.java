@@ -12,7 +12,7 @@ public class VirtualRAM {
     private static final int DEFAULT_MAX_CACHE_PAGES = 128;
     private static final int MAX_CACHE_PAGES_CAP = 512;
     private static final int WRITEBACK_BATCH_SIZE = 2;
-    private static final int CACHE_MEMORY_DIVISOR = 8;
+    public static final int CACHE_MEMORY_DIVISOR = 8;
     private static final int SMALL_RAM_THRESHOLD_BYTES = 4 << 20;
     private static final int SMALL_RAM_MAX_CACHE_PAGES = 64;
 
@@ -63,17 +63,18 @@ public class VirtualRAM {
     }
 
     private static int sanitizeCachePages(int cachePages) {
-        if (cachePages < 1) cachePages = DEFAULT_MAX_CACHE_PAGES;
-        if (cachePages > MAX_CACHE_PAGES_CAP) cachePages = MAX_CACHE_PAGES_CAP;
-        return cachePages;
+        int sanitized = cachePages;
+        if (sanitized < 1) sanitized = DEFAULT_MAX_CACHE_PAGES;
+        if (sanitized > MAX_CACHE_PAGES_CAP) sanitized = MAX_CACHE_PAGES_CAP;
+        return sanitized;
     }
 
     private static int suggestCachePages(int sizeInBytes) {
         int suggested = DEFAULT_MAX_CACHE_PAGES;
         try {
             long free = Runtime.getRuntime().freeMemory();
-            int byFree = (int)(free / (PAGE_SIZE * CACHE_MEMORY_DIVISOR));
-            if (byFree > suggested) suggested = byFree;
+            int cachePagesByFreeMemory = (int)(free / (PAGE_SIZE * CACHE_MEMORY_DIVISOR));
+            if (cachePagesByFreeMemory > suggested) suggested = cachePagesByFreeMemory;
         } catch (Throwable t) {}
         if (sizeInBytes <= SMALL_RAM_THRESHOLD_BYTES && suggested > SMALL_RAM_MAX_CACHE_PAGES) {
             suggested = SMALL_RAM_MAX_CACHE_PAGES;
