@@ -368,7 +368,7 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
             setFullScreenMode(true);
             try {
                 String tinyFontProp = System.getProperty("linux2me.tinyfont");
-                if (tinyFontProp != null && "false".equals(tinyFontProp.toLowerCase())) {
+                if (tinyFontProp != null && tinyFontProp.equalsIgnoreCase("false")) {
                     useTinyFont = false;
                 }
             } catch (Throwable t) {}
