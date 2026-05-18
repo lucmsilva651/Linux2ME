@@ -8,6 +8,7 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
     private MiniRV32IMA.State core;
     
     int ramSize = 32 * 1024 * 1024;
+    private static final int DEFAULT_STEP_BATCH = 10000;
     
     private int[] kbBuffer = new int[64];
     private int kbReadPtr = 0, kbWritePtr = 0;
@@ -222,7 +223,9 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
             canvas.repaint(); 
             canvas.serviceRepaints();
             Thread.sleep(100);
-            VirtualRAM vram = new VirtualRAM(ramSize); 
+            int cachePages = selectCachePages(ramSize);
+            VirtualRAM vram = new VirtualRAM(ramSize, cachePages); 
+            canvas.writeString("VirtualRAM cache pages: " + cachePages + "\n");
             
             boolean isPoweredOn = true;
             
@@ -251,15 +254,22 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
                 canvas.writeString("Booting Linux...\n");
 
                 long lastTime = System.currentTimeMillis();
-                int count = 0;
+                long lastYieldTime = lastTime;
+                int stepBatch = DEFAULT_STEP_BATCH;
                 
                 while (true) {
                     long now = System.currentTimeMillis();
                     int elapsedUs = (int)((now - lastTime) * 1000);
                     if (elapsedUs < 1) elapsedUs = 1; 
                     lastTime = now;
+
+                    if (elapsedUs > 30000 && stepBatch > 2000) {
+                        stepBatch -= 1000;
+                    } else if (elapsedUs < 8000 && stepBatch < 20000) {
+                        stepBatch += 1000;
+                    }
                     
-                    int ret = MiniRV32IMA.step(core, vram, ramSize, elapsedUs, 10000, this);
+                    int ret = MiniRV32IMA.step(core, vram, ramSize, elapsedUs, stepBatch, this);
                     
                     if (ret == 0x5555) {
                         canvas.writeString("\nPOWEROFF@0x" + toHex8(core.cycleh) + toHex8(core.cyclel) + "\n");
@@ -270,8 +280,10 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
                         break; 
                     }
                     
-                    if (count++ % 10 == 0) {
+                    long afterStep = System.currentTimeMillis();
+                    if (afterStep - lastYieldTime >= 12) {
                         try { Thread.sleep(1); } catch (Exception e) {}
+                        lastYieldTime = afterStep;
                     }
                 }
             }
@@ -279,6 +291,24 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
             canvas.writeString("\nCRASH: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private int selectCachePages(int ramBytes) {
+        int ramPages = (ramBytes + 4095) / 4096;
+        int pages = 128;
+        try {
+            String override = System.getProperty("linux2me.cache.pages");
+            if (override != null) pages = Integer.parseInt(override);
+        } catch (Throwable t) {}
+        try {
+            long free = Runtime.getRuntime().freeMemory();
+            int byFree = (int)(free / (4096 * 8));
+            if (byFree > pages) pages = byFree;
+        } catch (Throwable t) {}
+        if (pages < 16) pages = 16;
+        if (pages > 512) pages = 512;
+        if (pages > ramPages) pages = ramPages;
+        return pages;
     }
 
     private String toHex8(int val) {
@@ -329,6 +359,8 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
         private int currentColor = 0xFFFFFF;
         private int ansiState = 0; 
         private int ansiValue = 0;
+        private int pendingChars = 0;
+        private static final int REPAINT_CHAR_BATCH = 32;
 
         public TerminalCanvas(Display display) {
             setFullScreenMode(true);
@@ -408,8 +440,17 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
                 if (curX >= cols) { curX = 0; curY++; }
             }
             
-            if (curY >= rows) scroll();
-            repaint();
+            boolean scrolled = false;
+            if (curY >= rows) {
+                scroll();
+                scrolled = true;
+            }
+
+            pendingChars++;
+            if (scrolled || c == '\n' || c == '\r' || pendingChars >= REPAINT_CHAR_BATCH) {
+                pendingChars = 0;
+                repaint();
+            }
         }
 
         private void applyAnsiColor(int code) {
