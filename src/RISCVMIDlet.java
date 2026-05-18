@@ -355,6 +355,7 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
         
         private int curX = 0, curY = 0;
         private Font font = Font.getFont(Font.FACE_MONOSPACE, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+        private boolean useTinyFont = true;
         private int charW, charH;
 
         private int currentColor = 0xFFFFFF;
@@ -365,8 +366,19 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
 
         public TerminalCanvas(Display display) {
             setFullScreenMode(true);
-            charW = Math.max(1, font.charWidth('W')); 
-            charH = Math.max(1, font.getHeight());
+            try {
+                String tinyFontProp = System.getProperty("linux2me.tinyfont");
+                if (tinyFontProp != null && "false".equals(tinyFontProp.toLowerCase())) {
+                    useTinyFont = false;
+                }
+            } catch (Throwable t) {}
+            if (useTinyFont) {
+                charW = TinyFont.CELL_W;
+                charH = TinyFont.CELL_H;
+            } else {
+                charW = Math.max(1, font.charWidth('W')); 
+                charH = Math.max(1, font.getHeight());
+            }
             initScreen(getWidth(), getHeight());
         }
 
@@ -490,13 +502,17 @@ public class RISCVMIDlet extends MIDlet implements MiniRV32IMA.RVSystem, Runnabl
             g.setColor(0x000000); 
             g.fillRect(0, 0, getWidth(), getHeight());
             
-            g.setFont(font);
+            if (!useTinyFont) g.setFont(font);
             
             for (int i = 0; i < rows; i++) {
                 for (int j = 0; j < cols; j++) {
                     if (screen[i][j] != ' ') {
                         g.setColor(colors[i][j]);
-                        g.drawChar(screen[i][j], j * charW + 2, i * charH, Graphics.TOP | Graphics.LEFT);
+                        if (useTinyFont) {
+                            TinyFont.drawChar(g, screen[i][j], j * charW, i * charH);
+                        } else {
+                            g.drawChar(screen[i][j], j * charW + 2, i * charH, Graphics.TOP | Graphics.LEFT);
+                        }
                     }
                 }
             }

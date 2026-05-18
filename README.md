@@ -14,3 +14,6 @@ That button between the arrow keys sends the command.
 
 # License
 MIT
+
+# Credits
+- Tiny bitmap terminal font approach inspired by `TinyFont.java` from: https://github.com/AzizBgBoss/linux-j2me
